@@ -2,6 +2,7 @@ package main
 
 import (
 	//	"fmt"
+	"github.com/efigence/go-ha2bgp/check/listen"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
@@ -50,6 +51,8 @@ func main() {
 			os.Exit(1)
 		}
 		log.Infof("Starting HA2BGP version: %s", version)
+		ip, err := listen.GetListeningIp("tcp", "sport = :80 or sport = :443")
+		log.Warningf("Listening IPs: %+v | %s", ip, err)
 		MainLoop(c)
 		return nil
 	}
