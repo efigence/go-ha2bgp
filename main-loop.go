@@ -46,17 +46,26 @@ func MainLoop(c *cli.Context) {
 			if n.Contains(ip) {
 				log.Warningf("New IP added: %+v,%+v", ip, n)
 				core.RegisterRoute(ip.String(), nexthop, "", check)
+				break
 			}
 		}
 
 	})
+	// test run if it runs correctly
+	err = check.Check()
+	if err != nil {
+		log.Panicf("Error running checker: %s", err)
+	}
 	go func() {
 		checkMin := time.Duration(time.Second)
 		checkMax := time.Duration(time.Second * 10)
 		log.Noticef("Running listen checks every 1..10s (1s by default unless slowdown is detected)")
 		for {
 			start := time.Now()
-			check.Check()
+			err := check.Check()
+			if err != nil {
+				log.Errorf("Error running check: %s", err)
+			}
 			diff := time.Since(start)
 			delay := diff * 10
 			switch {
