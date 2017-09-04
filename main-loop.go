@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/efigence/go-ha2bgp/check/listen"
+	"github.com/efigence/go-ha2bgp/engine"
 	"github.com/efigence/go-ha2bgp/exabgp"
 	"github.com/efigence/go-haproxy"
 	"github.com/urfave/cli"
+	"net"
 	"os"
 	"time"
 )
@@ -15,48 +17,62 @@ func MainLoop(c *cli.Context) {
 		log.Errorf("ExaBGP error, exiting: %s", err)
 		return
 	}
-	check, err := listen.NewCheck(`tcp`, "")
-	log.Infof("listen check: %s", err)
-	for {
-		log.Noticef("check state: %+v", check.DebugListenState())
-		if WaitForHaproxySocketOk(c.String(`socket`)) {
-			sock := haproxy.New(c.String(`socket`))
-			errCnt := 0
-			for {
-				if _, err := sock.RunCmd(`quit`); err == nil {
-					log.Info("HAProxy OK, announcing routes")
-					bgp.AnnounceRouteSlice(c.StringSlice(`announce`), `self`)
-					check.Check()
-					log.Noticef("check state: %+v", check.DebugListenState())
-				} else {
-					log.Errorf("Error when communicating with haproxy, withdrawing routes: %s", err)
-					for _, v := range c.StringSlice(`announce`) {
-						bgp.WithdrawRoute(v, `self`)
-						errCnt = errCnt + 1
-					}
-				}
-				time.Sleep(time.Second * 10)
-				if errCnt > 10 {
-					break
-				}
-			}
-		} else {
-			log.Errorf("No HAProxy communication, withdrawing routes")
-			bgp.WithdrawRouteSlice(c.StringSlice(`announce`), `self`)
+	core, err := engine.NewEngine(bgp)
+	if err != nil {
+		log.Panicf("Error when starting engine: %s", err)
+	}
+	nexthop := c.String("nexthop")
+	listenFilter := c.String("listen-filter")
+	log.Noticef("ss filter: %s", listenFilter)
+	// prepare list of network filters
+	rawNets := c.StringSlice("network")
+	if len(rawNets) == 0 {
+		rawNets = []string{"127.0.0.1/8"}
+	}
+	networkFilter := make([]net.IPNet, len(rawNets))
+	for id, rawNet := range rawNets {
+		_, ipNet, err := net.ParseCIDR(rawNet)
+		if err != nil || ipNet == nil {
+			log.Panicf("can't parse network: %s", rawNet)
 		}
+		log.Noticef("adding network %s to filter", ipNet.String())
+		networkFilter[id] = *ipNet
+
 	}
+	log.Errorf("filter: %+v", networkFilter)
+	check, err := listen.NewCheck(`tcp`, listenFilter)
+	check.SetNewIpHook(func(ip net.IP) {
+		for _, n := range networkFilter {
+			if n.Contains(ip) {
+				log.Warningf("New IP added: %+v,%+v", ip, n)
+				core.RegisterRoute(ip.String(), nexthop, "", check)
+			}
+		}
 
-}
-
-func Announce(bgp *exabgp.Exa3, s []string) {
-	for _, v := range s {
-		bgp.AnnounceRoute(v, `self`)
-	}
-}
-
-func Withdraw(bgp *exabgp.Exa3, s []string) {
-	for _, v := range s {
-		bgp.WithdrawRoute(v, `self`)
+	})
+	go func() {
+		checkMin := time.Duration(time.Second)
+		checkMax := time.Duration(time.Second * 10)
+		log.Noticef("Running listen checks every 1..10s (1s by default unless slowdown is detected)")
+		for {
+			start := time.Now()
+			check.Check()
+			diff := time.Since(start)
+			delay := diff * 10
+			switch {
+			case delay < checkMin:
+				time.Sleep(checkMin)
+			case delay > checkMax:
+				time.Sleep(checkMax)
+			default:
+				time.Sleep(delay)
+			}
+		}
+	}()
+	log.Noticef("Running core state update every second")
+	for {
+		time.Sleep(time.Second * 1)
+		core.UpdateState()
 	}
 }
 

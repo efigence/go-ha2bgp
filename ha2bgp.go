@@ -2,7 +2,6 @@ package main
 
 import (
 	//	"fmt"
-	"github.com/efigence/go-ha2bgp/check/listen"
 	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
@@ -22,7 +21,8 @@ func main() {
 
 	app := cli.NewApp()
 	app.Name = "HA2BGP"
-	app.Description = "Announce BGP routes when services(HAProxy) is up"
+	app.Usage = "Announce BGP prefixes only when services are up"
+	app.Description = "HA2BGP is bridge between bgp (so far only ExaBGP) and various healthchecks (so far only checks for listening socket\n    It's role is to announce routes when service is up and withdraw when they are down or flapping"
 	app.Version = version
 	app.HideHelp = true
 	app.Flags = []cli.Flag{
@@ -35,14 +35,25 @@ func main() {
 		},
 		cli.StringSliceFlag{
 			Name:   "network, n",
-			Value:  &cli.StringSlice{"127.0.0.1/8"},
-			Usage:  "Networks allowed to be distributed, in CIDR format",
+			Usage:  "Networks allowed to be distributed, in CIDR format. Defaults to 127.0.0.1/8",
 			EnvVar: "HA2BGP_NETWORK_FILTER",
 		},
-		cli.StringSliceFlag{
-			Name:   "announce, a",
-			Usage:  "List of IPs to announce. This WILL ignore network filter but will not ignore backend state.",
-			EnvVar: "HA2BGP_ANNOUNCE",
+		cli.StringFlag{
+			Name:   "listen-filter, l",
+			Value:  "sport = :80 or sport = :443",
+			Usage:  "ss-compatible filter. defaults to only looking for listening ports 80 and 443",
+			EnvVar: "HA2BGP_LISTEN_FILTER",
+		},
+		// cli.StringSliceFlag{
+		// 	Name:   "announce, a",
+		// 	Usage:  "List of IPs to announce. This WILL ignore network filter but will not ignore backend state.",
+		// 	EnvVar: "HA2BGP_ANNOUNCE",
+		// },
+		cli.StringFlag{
+			Name:   "nexthop, t",
+			Value:  "self",
+			Usage:  "Next hop, defaults to self",
+			EnvVar: "HA2BGP_NEXTHOP",
 		},
 	}
 	app.Action = func(c *cli.Context) error {
@@ -51,8 +62,6 @@ func main() {
 			os.Exit(1)
 		}
 		log.Infof("Starting HA2BGP version: %s", version)
-		ip, err := listen.GetListeningIp("tcp", "sport = :80 or sport = :443")
-		log.Warningf("Listening IPs: %+v | %s", ip, err)
 		MainLoop(c)
 		return nil
 	}

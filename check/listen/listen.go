@@ -73,6 +73,7 @@ type Check struct {
 	filter string
 	ipAlive map[string]bool
 	sync.RWMutex
+	newIpHook func(ip net.IP)
 }
 
 
@@ -85,6 +86,16 @@ func NewCheck(socketType string, filter string) (c *Check, err error) {
 	return c, err
 }
 
+
+// hook that will be called when new listening IP is found
+func (c *Check)SetNewIpHook(f func(ip net.IP)) {
+	c.Lock()
+	c.newIpHook = f
+	c.Unlock()
+}
+
+
+
 // Check() runs listen check and updates state table
 // It does keep a memory of IPs that were listening and stopped for debug purposes
 // it can be accessed from DebugListenState()
@@ -95,6 +106,11 @@ func (c *Check)Check() (err error) {
 	c.Lock()
 	defer c.Unlock()
 	for _, ip := range ip {
+		// new IPs are kicked to goroutine so they can lock
+		// in peace until Check() is finished
+		if _, ok := c.ipAlive[ip.String()]; !ok {
+			go c.newIpHook(ip)
+		}
 		ipMap[ip.String()] = true
 		c.ipAlive[ip.String()] = true
 
