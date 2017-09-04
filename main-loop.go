@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/efigence/go-ha2bgp/check/listen"
 	"github.com/efigence/go-ha2bgp/exabgp"
 	"github.com/efigence/go-haproxy"
 	"github.com/urfave/cli"
@@ -14,7 +15,10 @@ func MainLoop(c *cli.Context) {
 		log.Errorf("ExaBGP error, exiting: %s", err)
 		return
 	}
+	check, err := listen.NewCheck(`tcp`, "")
+	log.Infof("listen check: %s", err)
 	for {
+		log.Noticef("check state: %+v", check.DebugListenState())
 		if WaitForHaproxySocketOk(c.String(`socket`)) {
 			sock := haproxy.New(c.String(`socket`))
 			errCnt := 0
@@ -22,7 +26,8 @@ func MainLoop(c *cli.Context) {
 				if _, err := sock.RunCmd(`quit`); err == nil {
 					log.Info("HAProxy OK, announcing routes")
 					bgp.AnnounceRouteSlice(c.StringSlice(`announce`), `self`)
-
+					check.Check()
+					log.Noticef("check state: %+v", check.DebugListenState())
 				} else {
 					log.Errorf("Error when communicating with haproxy, withdrawing routes: %s", err)
 					for _, v := range c.StringSlice(`announce`) {
