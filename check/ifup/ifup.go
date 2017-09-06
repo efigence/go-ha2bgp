@@ -64,13 +64,14 @@ type Check struct {
 	sync.RWMutex
 }
 
-func NewCheck(device string, label string) (c *Check) {
+func NewCheck(device string, label string) (c *Check, err error) {
+	_, err = GetLocalIp(`lo`,``)
 	m := make(map[string]bool);
 	return &Check{
 		device: device,
 		label: label,
 		ipAlive: &m,
-	}
+	}, err
 }
 
 

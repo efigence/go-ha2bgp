@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/efigence/go-ha2bgp/check"
+	"github.com/efigence/go-ha2bgp/check/ifup"
 	"github.com/efigence/go-ha2bgp/check/listen"
 	"github.com/efigence/go-ha2bgp/engine"
 	"github.com/efigence/go-ha2bgp/exabgp"
@@ -41,11 +43,22 @@ func MainLoop(c *cli.Context) {
 
 	}
 	log.Errorf("filter: %+v", networkFilter)
-	check, err := listen.NewCheck(`tcp`, listenFilter)
-	check.SetNewIpHook(func(ip net.IP) {
+	check, err := check.NewCheck()
+	checkListen, err := listen.NewCheck(`tcp`, listenFilter)
+	if err != nil {
+		log.Panicf("Can't initialize listener checker: %s", err)
+	}
+	checkIfup, err := ifup.NewCheck(c.String(`device`), c.String(`device-label`))
+	if err != nil {
+		log.Panicf("Can't initialize ifup checker: %s", err)
+	}
+	check.Register(`listen`, checkListen)
+	check.Register(`ifup`, checkIfup)
+
+	checkListen.SetNewIpHook(func(ip net.IP) {
 		for _, n := range networkFilter {
 			if n.Contains(ip) {
-				log.Warningf("New IP added: %+v,%+v", ip, n)
+				log.Warningf("New listening IP added: %+v,%+v", ip, n)
 				core.RegisterRoute(ip.String(), nexthop, "", check)
 				break
 			}
@@ -60,7 +73,7 @@ func MainLoop(c *cli.Context) {
 	go func() {
 		checkMin := time.Duration(time.Second)
 		checkMax := time.Duration(time.Second * 10)
-		log.Noticef("Running listen checks every 1..10s (1s by default unless slowdown is detected)")
+		log.Noticef("Running checks every 1..10s (1s by default unless slowdown is detected)")
 		for {
 			start := time.Now()
 			err := check.Check()
