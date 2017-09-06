@@ -27,6 +27,7 @@ func MainLoop(c *cli.Context) {
 	// prepare list of network filters
 	rawNets := c.StringSlice("network")
 	if len(rawNets) == 0 {
+		log.Notice("please specify whitelisted networks using --network parameter; running in test mode where only localhost(127.0.0.0/8) IPs will be recognized")
 		rawNets = []string{"127.0.0.1/8"}
 	}
 	networkFilter := make([]net.IPNet, len(rawNets))
