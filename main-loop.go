@@ -42,6 +42,7 @@ func MainLoop(c *cli.Context) {
 		networkFilter[id] = *ipNet
 
 	}
+	// TODO redo that part, it is a bit messy
 	log.Errorf("filter: %+v", networkFilter)
 	check, err := check.NewCheck()
 	checkListen, err := listen.NewCheck(`tcp`, listenFilter)
@@ -54,11 +55,12 @@ func MainLoop(c *cli.Context) {
 	}
 	check.Register(`listen`, checkListen)
 	check.Register(`ifup`, checkIfup)
-
+	// add any new listening IP to the list
+	// it will be checked before announcing so in case of IP that is listening but not up (net.ipv4.ip_nonlocal_bind = 1)
 	checkListen.SetNewIpHook(func(ip net.IP) {
 		for _, n := range networkFilter {
 			if n.Contains(ip) {
-				log.Warningf("New listening IP added: %+v,%+v", ip, n)
+				log.Warningf("New listening socket IP added: %+v,%+v", ip, n)
 				core.RegisterRoute(ip.String(), nexthop, "", check)
 				break
 			}

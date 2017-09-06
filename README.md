@@ -2,18 +2,16 @@
 
 Distribute IPs into (exa-)BGP only if backend serving them is up
 
-WiP (please do not deploy current version of it anywhere)
-
 What it does now:
 
 * Searches for any listening socket matching filter (`--listen-filter` option, `ss` compatible filter that defaults to 80/443
 * Adds any listening IP that matches one of networks (`--network` option, specify more than once for more nets)
-* Checks if that listening IP actually exists in system (in case `net.ipv4.ip_nonlocal_bind=1` and IP is not [yet] up)
+* Checks if that listening IP actually exists in system (in case `net.ipv4.ip_nonlocal_bind=1` and IP is not [yet] up). You can specify which device to check (defautls to all) via `--device` and `--device-label`
 * Announces it (with some flapping protection)
 * When listening socket or interface goes down it withdraws it after a delay (to allow for app restart).
 * When interface/socket starts to flap it is also withdrawn
 
-
+there are also few other more detailed options (like interface label filter) under `--help`
 
 Goals:
 

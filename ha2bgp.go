@@ -22,7 +22,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "HA2BGP"
 	app.Usage = "Announce BGP prefixes only when services are up"
-	app.Description = "HA2BGP is bridge between bgp (so far only ExaBGP) and various healthchecks (so far only checks for listening socket\n    It's role is to announce routes when service is up and withdraw when they are down or flapping"
+	app.Description = "HA2BGP is bridge between bgp (so far only ExaBGP) and various healthchecks\n    It's role is to announce routes when service is up and withdraw when they are down or flapping\n    For more https://github.com/efigence/go-ha2bgp"
 	app.Version = version
 	app.HideHelp = true
 	app.Flags = []cli.Flag{
@@ -41,8 +41,18 @@ func main() {
 		cli.StringFlag{
 			Name:   "listen-filter, l",
 			Value:  "sport = :80 or sport = :443",
-			Usage:  "ss-compatible filter. defaults to only looking for listening ports 80 and 443",
+			Usage:  "ss-compatible filter, set if you use non HTTP/S ports",
 			EnvVar: "HA2BGP_LISTEN_FILTER",
+		},
+		cli.StringFlag{
+			Name:   "device",
+			Usage:  "specify device to check for listening IPs. Defaults to empty string which means all devices",
+			EnvVar: "HA2BGP_DEVICE",
+		},
+		cli.StringFlag{
+			Name:   "device-label",
+			Usage:  "filter IPs by address label string. Accepts full name or globs (like lo:*)",
+			EnvVar: "HA2BGP_DEVICE",
 		},
 		// cli.StringSliceFlag{
 		// 	Name:   "announce, a",
@@ -52,7 +62,7 @@ func main() {
 		cli.StringFlag{
 			Name:   "nexthop, t",
 			Value:  "self",
-			Usage:  "Next hop, defaults to self",
+			Usage:  "Next hop",
 			EnvVar: "HA2BGP_NEXTHOP",
 		},
 	}
