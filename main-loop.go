@@ -43,7 +43,7 @@ func MainLoop(c *cli.Context) {
 
 	}
 	// TODO redo that part, it is a bit messy
-	log.Errorf("filter: %+v", networkFilter)
+	log.Debugf("Full network filter: %+v", networkFilter)
 	check, err := check.NewCheck()
 	checkListen, err := listen.NewCheck(`tcp`, listenFilter)
 	if err != nil {
@@ -60,7 +60,7 @@ func MainLoop(c *cli.Context) {
 	checkListen.SetNewIpHook(func(ip net.IP) {
 		for _, n := range networkFilter {
 			if n.Contains(ip) {
-				log.Warningf("New listening socket IP added: %+v,%+v", ip, n)
+				log.Noticef("New listening socket IP added: %+v,%+v", ip, n)
 				core.RegisterRoute(ip.String(), nexthop, "", check)
 				break
 			}

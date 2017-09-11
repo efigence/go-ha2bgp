@@ -58,7 +58,7 @@ func (e *Engine)RegisterRoute (route string, nexthop string, extra string, healt
 	defer e.Unlock()
 	if _, ok := e.Routes[routeStr]; !ok {
 		e.Routes[routeStr] = newRoute
-		log.Noticef("Registered new route  %s -> %s",route, nexthop)
+		log.Noticef("Registered new route %s -> %s",route, nexthop)
 	}
 	return err
 }

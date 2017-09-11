@@ -11,13 +11,16 @@ var version string
 var log = logging.MustGetLogger("main")
 
 // note the "#" -  it is added so exabgp treats the line as comment
-var stdout_log_format = logging.MustStringFormatter("# %{color:bold}%{time:2006-01-02T15:04:05.0000Z-07:00}%{color:reset}%{color} [%{level:.1s}] %{color:reset}%{shortpkg}[%{longfunc}] %{message}")
+var debugLogFormat = logging.MustStringFormatter("# %{color:bold}%{time:2006-01-02T15:04:05.0000Z-07:00}%{color:reset}%{color} [%{level:.1s}] %{color:reset}%{shortpkg}[%{longfunc}] %{message}")
+var colorLogFormat = logging.MustStringFormatter("# %{color:bold}%{time:2006-01-02T15:04:05Z-07:00}%{color:reset}%{color} [%{level:.1s}]%{color:reset} %{message}")
+var bwLogFormat = logging.MustStringFormatter("# %{time:2006-01-02T15:04:05Z-07:00} [%{level:.1s}] %{message}")
 
 func main() {
 	stderrBackend := logging.NewLogBackend(os.Stderr, "", 0)
-	stderrFormatter := logging.NewBackendFormatter(stderrBackend, stdout_log_format)
-	logging.SetBackend(stderrFormatter)
-	logging.SetFormatter(stdout_log_format)
+	//	stderrFormatter := logging.NewBackendFormatter(stderrBackend, colorLogFormat)
+	logging.SetBackend(stderrBackend)
+	logging.SetFormatter(colorLogFormat)
+	logging.SetLevel(logging.NOTICE, "")
 
 	app := cli.NewApp()
 	app.Name = "HA2BGP"
@@ -65,12 +68,28 @@ func main() {
 			Usage:  "Next hop",
 			EnvVar: "HA2BGP_NEXTHOP",
 		},
+		cli.BoolFlag{
+			Name:  "no-color",
+			Usage: "disable colors",
+		},
+		cli.BoolFlag{
+			Name:  "debug,d",
+			Usage: "Debug",
+		},
 	}
 	app.Action = func(c *cli.Context) error {
 		if c.Bool("help") {
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
+		if c.Bool("debug") {
+			logging.SetFormatter(debugLogFormat)
+			logging.SetLevel(logging.DEBUG, "")
+		} else if c.Bool("no-color") {
+			logging.SetFormatter(bwLogFormat)
+
+		}
+
 		log.Infof("Starting HA2BGP version: %s", version)
 		MainLoop(c)
 		return nil
