@@ -60,7 +60,7 @@ func MainLoop(c *cli.Context) {
 	checkListen.SetNewIpHook(func(ip net.IP) {
 		for _, n := range networkFilter {
 			if n.Contains(ip) {
-				log.Noticef("New listening socket IP added: %+v,%+v", ip, n)
+				log.Noticef("New listening socket IP added: %s,%s", ip.String(), n.String())
 				core.RegisterRoute(ip.String(), nexthop, "", check)
 				break
 			}
