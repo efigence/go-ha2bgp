@@ -5,15 +5,15 @@ import (
 	"github.com/op/go-logging"
 	"github.com/urfave/cli"
 	"os"
+	"regexp"
+	"strings"
 )
 
 var version string
 var log = logging.MustGetLogger("main")
 
 // note the "#" -  it is added so exabgp treats the line as comment
-var debugLogFormat = logging.MustStringFormatter("# %{color:bold}%{time:2006-01-02T15:04:05.0000Z-07:00}%{color:reset}%{color} [%{level:.1s}] %{color:reset}%{shortpkg}[%{longfunc}] %{message}")
 var colorLogFormat = logging.MustStringFormatter("# %{color:bold}%{time:2006-01-02T15:04:05Z-07:00}%{color:reset}%{color} [%{level:.1s}]%{color:reset} %{message}")
-var bwLogFormat = logging.MustStringFormatter("# %{time:2006-01-02T15:04:05Z-07:00} [%{level:.1s}] %{message}")
 
 func main() {
 	stderrBackend := logging.NewLogBackend(os.Stderr, "", 0)
@@ -72,6 +72,11 @@ func main() {
 			Name:  "no-color",
 			Usage: "disable colors",
 		},
+		cli.StringFlag{
+			Name:  "bgp-backend",
+			Value: "exabgp",
+			Usage: "BGP backend. So far only 'test' and 'exabgp' are supported.",
+		},
 		cli.BoolFlag{
 			Name:  "debug,d",
 			Usage: "Debug",
@@ -82,13 +87,11 @@ func main() {
 			cli.ShowAppHelp(c)
 			os.Exit(1)
 		}
-		if c.Bool("debug") {
-			logging.SetFormatter(debugLogFormat)
-			logging.SetLevel(logging.DEBUG, "")
-		} else if c.Bool("no-color") {
-			logging.SetFormatter(bwLogFormat)
-
+		if !regexp.MustCompile("^(exabgptest|exabgp)").MatchString(c.GlobalString("bgp-backend")) {
+			log.Errorf("bgp-backend must be one of [exabgptest,exabgp] but got [%s]", c.GlobalString("bgp-backeend"))
+			os.Exit(1)
 		}
+		setLoggerFormat(c)
 
 		log.Infof("Starting HA2BGP version: %s", version)
 		MainLoop(c)
@@ -96,4 +99,44 @@ func main() {
 	}
 	app.Run(os.Args)
 
+}
+
+func setLoggerFormat(c *cli.Context) {
+	logFormat := ""
+	// add timestamp by default except for exabgp
+	if c.GlobalString("bgp-backend") == "exabgp" {
+		if c.Bool("debug") {
+			logFormat = logFormat + "[" + strings.ToLower(c.App.Name) + "] %{time:05.0000} "
+		} else {
+			logFormat = logFormat + "[" + strings.ToLower(c.App.Name) + "] "
+		}
+	} else {
+		if c.Bool("no-color") {
+			logFormat = logFormat + "%{time:2006-01-02T15:04:05.0000Z-07:00} "
+		} else {
+			logFormat = logFormat + "%{color:bold}%{time:2006-01-02T15:04:05.0000Z-07:00}%{color:reset} "
+		}
+	}
+	// those probably should differ but function names are useful even when not debugging
+	if c.Bool("debug") {
+		if c.Bool("no-color") || c.GlobalString("bgp-backend") == "exabgp" {
+			logFormat = logFormat + "[%{level:.1s}] %{shortpkg}[%{longfunc}] %{message}"
+		} else {
+			logFormat = logFormat + "%{color}[%{level:.1s}] %{color:reset}%{shortpkg}[%{longfunc}] %{message}"
+		}
+	} else {
+		if c.Bool("no-color") || c.GlobalString("bgp-backend") == "exabgp" {
+			logFormat = logFormat + "[%{level:.1s}] %{shortpkg}[%{longfunc}] %{message}"
+		} else {
+			logFormat = logFormat + "%{color}[%{level:.1s}] %{color:reset}%{shortpkg}[%{longfunc}] %{message}"
+		}
+	}
+	logFormatter := logging.MustStringFormatter(logFormat)
+	if c.Bool("debug") {
+		logging.SetFormatter(logFormatter)
+		logging.SetLevel(logging.DEBUG, "")
+	} else {
+		logging.SetFormatter(logFormatter)
+
+	}
 }
