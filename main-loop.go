@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"github.com/efigence/go-ha2bgp/check"
 	"github.com/efigence/go-ha2bgp/check/ifup"
 	"github.com/efigence/go-ha2bgp/check/listen"
@@ -94,6 +95,14 @@ func MainLoop(c *cli.Context) {
 			}
 		}
 	}()
+	go func() {
+		log.Notice("reading stdin endlessly so exabgp v4 does not complain")
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			log.Warningf("received %s", scanner.Text())
+		}
+	}()
+
 	log.Noticef("Running core state update every second")
 	for {
 		time.Sleep(time.Second * 1)
