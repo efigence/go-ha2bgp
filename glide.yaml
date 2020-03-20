@@ -1,5 +1,0 @@
-package: github.com/efigence/go-ha2bgp
-import:
-- package: github.com/op/go-logging
-- package: github.com/urfave/cli
-- package: github.com/XANi/go-fsm

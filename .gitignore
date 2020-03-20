@@ -43,6 +43,7 @@ _testmain.go
 *.prof
 *.out
 *.static
+go-ha2bgp
 ha2bgp
 *.arm
 *.arm64
